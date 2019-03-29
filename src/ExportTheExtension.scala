@@ -30,13 +30,12 @@ class ExportTheExtension extends DefaultClassManager {
   private object ModelPrim extends Reporter {
     override def getSyntax = Syntax.reporterSyntax(ret = Syntax.StringType)
     override def report(args: Array[Argument], context: Context): AnyRef = {
-      context.workspace match {
-        case guiWS: GUIWorkspace =>
-          import org.nlogo.fileformat.basicLoader
-          val model = new ModelSaver(App.app, null).currentModelInCurrentVersion
-          basicLoader.sourceString(model, "nlogo").getOrElse(throw new ExtensionException("Model could not be serialized"))
-        case x =>
-          throw new ExtensionException(s"Models may only be exported from the GUI")
+      if (!context.workspace.isHeadless) {
+        import org.nlogo.fileformat.basicLoader
+        val model = new ModelSaver(App.app, null).currentModelInCurrentVersion
+        basicLoader.sourceString(model, "nlogo").getOrElse(throw new ExtensionException("Model could not be serialized"))
+      } else {
+        throw new ExtensionException("Models may only be exported from the GUI")
       }
     }
   }
@@ -45,6 +44,9 @@ class ExportTheExtension extends DefaultClassManager {
     override def getSyntax = Syntax.reporterSyntax(ret = Syntax.StringType)
     override def report(args: Array[Argument], context: Context): AnyRef = {
       context.workspace match {
+        case hlWS: HeadlessWorkspace =>
+          hlWS.outputAreaBuffer.toString
+
         case guiWS: GUIWorkspace =>
 
           val owOpt =
@@ -60,9 +62,6 @@ class ExportTheExtension extends DefaultClassManager {
             }
 
           owOpt.map(_.outputArea.valueText).getOrElse("")
-
-        case hlWS: HeadlessWorkspace =>
-          hlWS.outputAreaBuffer.toString
 
         case x =>
           throw new ExtensionException(s"Unsupported workspace type: ${x.getClass.getName}")
@@ -108,14 +107,22 @@ class ExportTheExtension extends DefaultClassManager {
   private object WorldPrim extends Reporter {
     override def getSyntax = Syntax.reporterSyntax(ret = Syntax.StringType)
     override def report(args: Array[Argument], context: Context): AnyRef = {
-      val promise = Promise[String]()
-      EventQueue.invokeLater {
+
+      val exportTheWorld = {
         () =>
           val caw = new CharArrayWriter
           context.workspace.exportWorld(new PrintWriter(caw))
-          promise.complete(Try(caw.toString))
+          caw.toString
       }
-      Await.result(promise.future, Duration.Inf)
+
+      if (!context.workspace.isHeadless) {
+        val promise = Promise[String]()
+        EventQueue.invokeLater { () => promise.complete(Try(exportTheWorld())) }
+        Await.result(promise.future, Duration.Inf)
+      } else {
+        exportTheWorld()
+      }
+
     }
   }
 
