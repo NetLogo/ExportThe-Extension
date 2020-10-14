@@ -8,13 +8,13 @@ import scala.concurrent.{ Await, Promise }
 import scala.concurrent.duration.Duration
 import scala.util.Try
 
-import org.nlogo.api.{ Argument, Context, DefaultClassManager, Dump, ExtensionException, PrimitiveManager, Reporter }
+import org.nlogo.api.{ Argument, Context, DefaultClassManager, Dump, ExtensionException, PlotManagerInterface, PrimitiveManager, Reporter }
 import org.nlogo.app.{ App, ModelSaver }
 import org.nlogo.app.interfacetab.{ WidgetPanel, WidgetWrapper }
 import org.nlogo.awt.EventQueue
 import org.nlogo.core.{ Model, Syntax }
 import org.nlogo.headless.HeadlessWorkspace
-import org.nlogo.plot.{ PlotExporter, PlotManager }
+import org.nlogo.plot.PlotExporter
 import org.nlogo.window.{ GUIWorkspace, InterfacePanelLite, OutputWidget }
 
 class ExportTheExtension extends DefaultClassManager {
@@ -75,8 +75,8 @@ class ExportTheExtension extends DefaultClassManager {
     override def report(args: Array[Argument], context: Context): AnyRef = {
 
       val plotName    = args(0).getString
-      val plotManager = context.workspace.plotManager.asInstanceOf[PlotManager]
-      val plotOpt     = Option(plotManager.getPlot(plotName))
+      val plotManager: PlotManagerInterface = context.workspace.plotManager
+      val plotOpt     = plotManager.maybeGetPlot(plotName)
 
       plotOpt.map {
         plot =>
