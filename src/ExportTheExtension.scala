@@ -8,13 +8,13 @@ import scala.concurrent.{ Await, Promise }
 import scala.concurrent.duration.Duration
 import scala.util.Try
 
-import org.nlogo.api.{ Argument, Context, DefaultClassManager, Dump, ExtensionException, PlotManagerInterface, PrimitiveManager, Reporter }
+import org.nlogo.api.{ Argument, Context, DefaultClassManager, Dump, ExtensionException, PlotInterface, PlotManagerInterface, PrimitiveManager, Reporter, Workspace }
 import org.nlogo.app.{ App, ModelSaver }
 import org.nlogo.app.interfacetab.{ WidgetPanel, WidgetWrapper }
 import org.nlogo.awt.EventQueue
 import org.nlogo.core.{ Model, Syntax }
 import org.nlogo.headless.HeadlessWorkspace
-import org.nlogo.plot.PlotExporter
+import org.nlogo.plot.{ CorePlotExporter, PlotExporter, PlotManager }
 import org.nlogo.window.{ GUIWorkspace, InterfacePanelLite, OutputWidget }
 
 class ExportTheExtension extends DefaultClassManager {
@@ -71,21 +71,45 @@ class ExportTheExtension extends DefaultClassManager {
   }
 
   private object PlotPrim extends Reporter {
+
     override def getSyntax = Syntax.reporterSyntax(ret = Syntax.StringType, right = List(Syntax.StringType))
+
     override def report(args: Array[Argument], context: Context): AnyRef = {
-
-      val plotName    = args(0).getString
-      val plotManager: PlotManagerInterface = context.workspace.plotManager
-      val plotOpt     = plotManager.maybeGetPlot(plotName)
-
-      plotOpt.map {
-        plot =>
-          val caw = new CharArrayWriter
-          new PlotExporter(plot, Dump.csv).export(new PrintWriter(caw))
-          caw.toString
-      }.getOrElse(throw new ExtensionException(s"No such plot: $plotName"))
-
+      val plotName = args(0).getString
+      try {
+        val plotManager = context.workspace.realPlotManager
+        val maybePlot   = plotManager.maybeGetPlot(plotName)
+        if (!maybePlot.isDefined) {
+          failPlot(plotName)
+        }
+        val plot = maybePlot.get
+        val caw  = new CharArrayWriter
+        new CorePlotExporter(plot, Dump.csv).export(new PrintWriter(caw))
+        caw.toString
+      } catch {
+        case _: NoSuchMethodError => {
+          tryPriorVersionExport(context.workspace, plotName)
+        }
+      }
     }
+
+    // This is a fallback to the deprecated NetLogo 6.1.1 GUI API since we want to support existing installs
+    // without an API version bump in NetLogo. -Jeremy B November 2020
+    def tryPriorVersionExport(workspace: Workspace, plotName: String): String = {
+      val plotManager = workspace.plotManager.asInstanceOf[PlotManager]
+      val plot        = plotManager.getPlot(plotName)
+      if (plot == null) {
+        failPlot(plotName)
+      }
+      val caw = new CharArrayWriter
+      new PlotExporter(plot, Dump.csv).export(new PrintWriter(caw))
+      caw.toString
+    }
+
+    def failPlot(plotName: String): Unit = {
+      throw new ExtensionException(s"No such plot: $plotName")
+    }
+
   }
 
   private object ViewPrim extends Reporter {

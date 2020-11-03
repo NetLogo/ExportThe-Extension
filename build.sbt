@@ -8,11 +8,21 @@ netLogoZipSources := false
 
 version := "1.0.2"
 
-scalaVersion := "2.12.8"
+scalaVersion := "2.12.12"
 
 scalaSource in Compile := baseDirectory.value / "src"
 
-scalacOptions ++= Seq("-deprecation", "-unchecked", "-Xfatal-warnings", "-encoding", "us-ascii")
+scalacOptions ++= Seq(
+  "-deprecation",
+  "-unchecked",
+  // We're using a deprecated method `getPlot()` and others but there is no way to surpress the errors for just
+  // that usage in Scala 2.12.12 (there is a `nowarn` annotation in Scala 2.13.3).  We can re-enable
+  // this after the deprecated usage is removed (NetLogo API 6.2?) or if we bump to Scala 2.13.3+.
+  // -Jeremy B November 2020
+  //"-Xfatal-warnings",
+  "-encoding",
+  "us-ascii"
+)
 
 // The remainder of this file is for options specific to bundled netlogo extensions
 // if copying this extension to build your own, you need nothing past line 14 to build
@@ -20,4 +30,4 @@ scalacOptions ++= Seq("-deprecation", "-unchecked", "-Xfatal-warnings", "-encodi
 netLogoTarget :=
   org.nlogo.build.NetLogoExtension.directoryTarget(baseDirectory.value)
 
-netLogoVersion := "6.1.1-62a331f"
+netLogoVersion := "6.1.1-f58ebf6"
