@@ -30,4 +30,5 @@ scalacOptions ++= Seq(
 netLogoTarget :=
   org.nlogo.build.NetLogoExtension.directoryTarget(baseDirectory.value)
 
-netLogoVersion := "6.1.1-f58ebf6"
+resolvers      += "netlogo" at "https://dl.cloudsmith.io/public/netlogo/netlogo/maven/"
+netLogoVersion := "6.2.0-d27b502"
