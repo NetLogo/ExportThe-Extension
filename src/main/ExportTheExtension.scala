@@ -14,7 +14,7 @@ import org.nlogo.app.interfacetab.{ WidgetPanel, WidgetWrapper }
 import org.nlogo.awt.EventQueue
 import org.nlogo.core.{ Model, Syntax }
 import org.nlogo.headless.HeadlessWorkspace
-import org.nlogo.plot.{ CorePlotExporter, PlotExporter, PlotManager }
+import org.nlogo.plot.{ CorePlotExporter, PlotManager }
 import org.nlogo.window.{ GUIWorkspace, InterfacePanelLite, OutputWidget }
 
 class ExportTheExtension extends DefaultClassManager {
@@ -31,7 +31,7 @@ class ExportTheExtension extends DefaultClassManager {
     override def getSyntax = Syntax.reporterSyntax(ret = Syntax.StringType)
     override def report(args: Array[Argument], context: Context): AnyRef = {
       if (!context.workspace.isHeadless) {
-        import org.nlogo.fileformat.basicLoader
+        import org.nlogo.fileformat.FileFormat.basicLoader
         val model = new ModelSaver(App.app, null).currentModelInCurrentVersion
         basicLoader.sourceString(model, "nlogo").getOrElse(throw new ExtensionException("Model could not be serialized"))
       } else {
@@ -52,7 +52,7 @@ class ExportTheExtension extends DefaultClassManager {
           val owOpt =
             guiWS.getWidgetContainer match {
               case wp: WidgetPanel =>
-                wp.getComponents.collect { case w: WidgetWrapper => w }.map(_.widget).collect {
+                wp.getComponents.collect { case w: WidgetWrapper => w }.map(_.widget()).collect {
                   case ow: OutputWidget => ow
                 }.headOption
               case ipl: InterfacePanelLite =>
@@ -80,7 +80,7 @@ class ExportTheExtension extends DefaultClassManager {
         val plotManager = context.workspace.realPlotManager
         val maybePlot   = plotManager.maybeGetPlot(plotName)
         if (!maybePlot.isDefined) {
-          failPlot(plotName)
+          throw failPlot(plotName)
         }
         val plot = maybePlot.get
         val caw  = new CharArrayWriter
@@ -96,18 +96,15 @@ class ExportTheExtension extends DefaultClassManager {
     // This is a fallback to the deprecated NetLogo 6.1.1 GUI API since we want to support existing installs
     // without an API version bump in NetLogo. -Jeremy B November 2020
     def tryPriorVersionExport(workspace: Workspace, plotName: String): String = {
-      val plotManager = workspace.plotManager.asInstanceOf[PlotManager]
-      val plot        = plotManager.getPlot(plotName)
-      if (plot == null) {
-        failPlot(plotName)
-      }
+      val plotManager = workspace.realPlotManager.asInstanceOf[PlotManager]
+      val plot        = plotManager.maybeGetPlot(plotName).getOrElse(throw failPlot(plotName))
       val caw = new CharArrayWriter
-      new PlotExporter(plot, Dump.csv).export(new PrintWriter(caw))
+      new CorePlotExporter(plot, Dump.csv).export(new PrintWriter(caw))
       caw.toString
     }
 
-    def failPlot(plotName: String): Unit = {
-      throw new ExtensionException(s"No such plot: $plotName")
+    def failPlot(plotName: String) = {
+      new ExtensionException(s"No such plot: $plotName")
     }
 
   }
