@@ -52,7 +52,7 @@ class ExportTheExtension extends DefaultClassManager {
           val owOpt =
             guiWS.getWidgetContainer match {
               case wp: WidgetPanel =>
-                wp.getComponents.collect { case w: WidgetWrapper => w }.map(_.widget()).collect {
+                wp.getComponents.collect { case w: WidgetWrapper => w }.map(_.widget).collect {
                   case ow: OutputWidget => ow
                 }.headOption
               case ipl: InterfacePanelLite =>
@@ -84,7 +84,7 @@ class ExportTheExtension extends DefaultClassManager {
         }
         val plot = maybePlot.get
         val caw  = new CharArrayWriter
-        new CorePlotExporter(plot, Dump.csv).export(new PrintWriter(caw))
+        new CorePlotExporter(plot, Dump.csv).`export`(new PrintWriter(caw))
         caw.toString
       } catch {
         case _: NoSuchMethodError => {
@@ -99,7 +99,7 @@ class ExportTheExtension extends DefaultClassManager {
       val plotManager = workspace.realPlotManager.asInstanceOf[PlotManager]
       val plot        = plotManager.maybeGetPlot(plotName).getOrElse(throw failPlot(plotName))
       val caw = new CharArrayWriter
-      new CorePlotExporter(plot, Dump.csv).export(new PrintWriter(caw))
+      new CorePlotExporter(plot, Dump.csv).`export`(new PrintWriter(caw))
       caw.toString
     }
 
