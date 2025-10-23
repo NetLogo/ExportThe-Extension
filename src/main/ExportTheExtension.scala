@@ -1,18 +1,19 @@
 package org.nlogo.extension.exportthe
 
 import java.io.{ ByteArrayOutputStream, CharArrayWriter, PrintWriter }
-import java.util.{ Base64, StringTokenizer }
+import java.util.Base64
 import javax.imageio.ImageIO
 
 import scala.concurrent.{ Await, Promise }
 import scala.concurrent.duration.Duration
 import scala.util.Try
 
-import org.nlogo.api.{ Argument, Context, DefaultClassManager, Dump, ExtensionException, PlotInterface, PlotManagerInterface, PrimitiveManager, Reporter, Workspace }
+import org.nlogo.api.{ Argument, Context, DefaultClassManager, Dump, ExtensionException, PrimitiveManager, Reporter,
+                       Workspace }
 import org.nlogo.app.{ App, ModelSaver }
 import org.nlogo.app.interfacetab.{ WidgetPanel, WidgetWrapper }
 import org.nlogo.awt.EventQueue
-import org.nlogo.core.{ Model, Syntax }
+import org.nlogo.core.Syntax
 import org.nlogo.headless.HeadlessWorkspace
 import org.nlogo.plot.{ CorePlotExporter, PlotManager }
 import org.nlogo.window.{ GUIWorkspace, InterfacePanelLite, OutputWidget }
@@ -30,7 +31,7 @@ class ExportTheExtension extends DefaultClassManager {
   private object ModelPrim extends Reporter {
     override def getSyntax = Syntax.reporterSyntax(ret = Syntax.StringType)
     override def report(args: Array[Argument], context: Context): AnyRef = {
-      if (!context.workspace.isHeadless) {
+      if (context.workspace.workspaceContext.workspaceGUI) {
         import org.nlogo.fileformat.FileFormat.basicLoader
         val model = new ModelSaver(App.app, null).currentModelInCurrentVersion
         basicLoader.sourceString(model, "nlogo").getOrElse(throw new ExtensionException("Model could not be serialized"))
@@ -50,7 +51,7 @@ class ExportTheExtension extends DefaultClassManager {
         case guiWS: GUIWorkspace =>
 
           val owOpt =
-            guiWS.getWidgetContainer match {
+            guiWS.viewWidget.getWidgetContainer.flatMap(_ match {
               case wp: WidgetPanel =>
                 wp.getComponents.collect { case w: WidgetWrapper => w }.map(_.widget).collect {
                   case ow: OutputWidget => ow
@@ -59,7 +60,7 @@ class ExportTheExtension extends DefaultClassManager {
                 ipl.getComponents.collect { case ow: OutputWidget => ow }.headOption
               case x =>
                 throw new ExtensionException(s"Unsupported widget container type: ${x.getClass.getName}")
-            }
+            })
 
           owOpt.map(_.outputArea.valueText).getOrElse("")
 
@@ -85,7 +86,7 @@ class ExportTheExtension extends DefaultClassManager {
         val plot = maybePlot.get
         val caw  = new CharArrayWriter
         new CorePlotExporter(plot, Dump.csv).`export`(new PrintWriter(caw))
-        caw.toString
+        caw.toString.replace("\r\n", "\n")
       } catch {
         case _: NoSuchMethodError => {
           tryPriorVersionExport(context.workspace, plotName)
@@ -133,10 +134,10 @@ class ExportTheExtension extends DefaultClassManager {
         () =>
           val caw = new CharArrayWriter
           context.workspace.exportWorld(new PrintWriter(caw))
-          caw.toString
+          caw.toString.replace("\r\n", "\n")
       }
 
-      if (!context.workspace.isHeadless) {
+      if (context.workspace.workspaceContext.workspaceGUI) {
         val promise = Promise[String]()
         EventQueue.invokeLater { () => promise.complete(Try(exportTheWorld())) }
         Await.result(promise.future, Duration.Inf)
