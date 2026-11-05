@@ -2,10 +2,10 @@ import org.nlogo.build.NetLogoExtension
 
 enablePlugins(NetLogoExtension)
 
-netLogoVersion      := "7.0.1"
+netLogoVersion      := "7.1.0-alpha1-931b371"
 netLogoExtName      := "export-the"
 netLogoClassManager := "org.nlogo.extension.exportthe.ExportTheExtension"
-version             := "1.1.1"
+version             := "1.1.2"
 scalaVersion        := "3.7.0"
 
 Compile / scalaSource := baseDirectory.value / "src" / "main"
@@ -18,6 +18,6 @@ scalacOptions ++= Seq(
   "-encoding",
   "us-ascii",
   "-release",
-  "17",
+  "21",
   "-Wunused:linted"
 )

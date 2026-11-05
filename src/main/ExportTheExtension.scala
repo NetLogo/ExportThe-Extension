@@ -8,17 +8,23 @@ import scala.concurrent.{ Await, Promise }
 import scala.concurrent.duration.Duration
 import scala.util.Try
 
-import org.nlogo.api.{ Argument, Context, DefaultClassManager, Dump, ExtensionException, PrimitiveManager, Reporter,
-                       Workspace }
-import org.nlogo.app.{ App, ModelSaver }
+import org.nlogo.api.{ Argument, AppInterface, Context, DefaultClassManager, Dump, ExtensionException, ExtensionManager,
+                       ModelSaver, ModelSections, PrimitiveManager, Reporter, Workspace }
 import org.nlogo.app.interfacetab.{ WidgetPanel, WidgetWrapper }
 import org.nlogo.awt.EventQueue
 import org.nlogo.core.Syntax
+import org.nlogo.fileformat.FileFormat
 import org.nlogo.headless.HeadlessWorkspace
 import org.nlogo.plot.{ CorePlotExporter, PlotManager }
 import org.nlogo.window.{ GUIWorkspace, InterfacePanelLite, OutputWidget }
 
 class ExportTheExtension extends DefaultClassManager {
+
+  private var app: Option[AppInterface] = None
+
+  override def runOnce(manager: ExtensionManager): Unit = {
+    app = manager.app
+  }
 
   override def load(manager: PrimitiveManager): Unit = {
     manager.addPrimitive("model" , ModelPrim)
@@ -31,12 +37,15 @@ class ExportTheExtension extends DefaultClassManager {
   private object ModelPrim extends Reporter {
     override def getSyntax = Syntax.reporterSyntax(ret = Syntax.StringType)
     override def report(args: Array[Argument], context: Context): AnyRef = {
-      if (context.workspace.workspaceContext.workspaceGUI) {
-        import org.nlogo.fileformat.FileFormat.basicLoader
-        val model = new ModelSaver(App.app, null).currentModelInCurrentVersion
-        basicLoader.sourceString(model, "nlogo").getOrElse(throw new ExtensionException("Model could not be serialized"))
-      } else {
-        throw new ExtensionException("Models may only be exported from the GUI")
+      app match {
+        case Some(instance: ModelSections) if context.workspace.workspaceContext.workspaceGUI =>
+          val model = new ModelSaver(instance, null).currentModelInCurrentVersion
+
+          FileFormat.basicLoader.sourceString(model, "nlogo")
+            .getOrElse(throw new ExtensionException("Model could not be serialized"))
+
+        case _ =>
+          throw new ExtensionException("Models may only be exported from the GUI")
       }
     }
   }
